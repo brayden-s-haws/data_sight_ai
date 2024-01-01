@@ -10,7 +10,7 @@ This app allows users to quickly onboard themselves to the contents of a databas
 # How It Works
 The app comes pre-loaded with a series of BigQuery datasets. The user is able to select the dataset they wish to work with, the table they are interest in, and the number of rows to preview. They are then shown several details about the data including a description of the table, how it relates to other tables, column fill stats and a data preview. Lastly, they can ask questions in natural language and an AI agent will generate SQL to answer those questions. The descriptions, relationships, and queries are all generated using [LangChain](https://www.langchain.com).
 
-https://share.cleanshot.com/dHzhQz3S 
+You can check out a demo [here](https://share.cleanshot.com/dHzhQz3S).
 
 The app is hosted on [Hex](https://hex.tech) and your can test it for yourself at this [link](https://app.hex.tech/455658aa-ee04-480f-945a-3fd455933fa2/app/9f3e2ca6-e2d9-4be5-b2b1-d761a410618b/latest).
 
