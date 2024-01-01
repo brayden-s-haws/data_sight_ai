@@ -22,3 +22,5 @@ Currently we are using the most basic version of Langchain agents. We will be up
 * Advanced query agent with Error handling and recovery
 * AI recommended visualizations
 
+# Acknowledgements
+[Huge thanks to Hex and Jordan East for the inspiration to use Hex as the basis for this tool, and their examples using Langchain with Snowflake.](https://hex.tech/use-cases/exploratory-analysis/text-SQL-chatbot/)https://hex.tech/use-cases/exploratory-analysis/text-SQL-chatbot/
