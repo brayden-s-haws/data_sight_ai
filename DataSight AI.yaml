@@ -19,9 +19,7 @@ projectAssets:
     - dataConnectionId: 3a3346bd-2e8b-4764-884f-507b067acf21 # bigquery (bigquery)
   envVars:
     - name: OPENAI_API_KEY
-      value: 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
-    - name: project_id
-      value: sql-chatbot
+      value:
   secrets:
     - secretName: OPENAI_API_KEY
     - secretName: auth_uri
