@@ -1,0 +1,787 @@
+schemaVersion: 3
+meta:
+  sourceVersionId: 70a29a73-93f4-472d-8651-463508c605e9 # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
+  description: null
+  projectId: 9f3e2ca6-e2d9-4be5-b2b1-d761a410618b # DO NOT CHANGE - Unique ID of the project from which this file was generated
+  title: DataSight AI
+  timezone: null
+  appTheme: SYS_PREF
+  codeLanguage: PYTHON
+  status:
+    name: In Progress
+  categories:
+    - name: External
+  castDecimalsDefault: true
+  logicQueryCacheTimeout: null
+  publishedQueryCacheTimeout: null
+projectAssets:
+  dataConnections:
+    - dataConnectionId: 3a3346bd-2e8b-4764-884f-507b067acf21 # bigquery (bigquery)
+  envVars:
+    - name: OPENAI_API_KEY
+      value: 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
+    - name: project_id
+      value: sql-chatbot
+  secrets:
+    - secretName: OPENAI_API_KEY
+    - secretName: auth_uri
+    - secretName: bq_creds
+    - secretName: client_email
+    - secretName: client_id
+    - secretName: private_key
+    - secretName: private_key_id
+sharedAssets:
+  secrets: []
+  vcsPackages: []
+  dataConnections: []
+  externalFileIntegrations: []
+cells:
+  - cellType: MARKDOWN
+    cellId: 16d0d923-9b04-4ac8-9877-a28b9b96eef8 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Overview
+    config:
+      source: |-
+        This app allows users to quickly onboard themselves to the contents of a database.  It uses standard data tools and Generative AI agents to surface information about the data. Currently it offers: 
+        * AI generated descriptions for each table
+        * Data preview and column stats 
+        * AI generated table relationship details 
+        * Natural language querying via an LLM-based agent 
+
+        (This is meant to be a proof of concept for how AI tools can help users better understand and work with their data.)
+
+        Coming Soon 🗺️:
+        * AI generated ERDs
+        * Advanced query agent with Error handling and recovery
+        * AI recommended visualizations
+
+        You can get technical details and access to the code on [GitHub](https://github.com/brayden-s-haws/data_sight_ai/tree/main).
+  - cellType: CODE
+    cellId: 268d0c69-9b34-413d-b2e2-989b916138d1 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Environment Setup
+    config:
+      source: |-
+        """
+        Import non-standard packages
+        """
+
+        !pip install langchain langchain-experimental
+        !pip install sqlalchemy-bigquery
+  - cellType: CODE
+    cellId: 1bb2f766-8a2e-4fcf-86ef-4fd241e7c173 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Setup BQ
+    config:
+      source: |-
+        """
+        Setup the BigQuery engine for data previews and AI agent use
+        """
+
+        from google.cloud import bigquery
+        from google.oauth2 import service_account
+        import json
+        from sqlalchemy import create_engine  # Table, MetaData, Integer, String, Column, ForeignKey, Float, Date
+
+        # Path to your service account key file
+        service_account_file = 'bq_config.json'
+
+        # Open and load the JSON file to get the credentials
+        with open(service_account_file, 'r') as file:
+            bq_creds_dict = json.load(file)
+
+        # Load credentials from the dictionary
+        credentials = service_account.Credentials.from_service_account_info(bq_creds_dict)
+
+        # Create a BigQuery client with the credentials
+        client = bigquery.Client(credentials=credentials)
+
+
+        datasets = list(client.list_datasets(project='bigquery-public-data'))
+        if datasets:
+            print ("Found datasets")
+        else:
+            print("No datasets found.")
+
+        # Create SQLAlchemy engine
+        engine = create_engine("bigquery://", credentials_info=bq_creds_dict)
+  - cellType: INPUT
+    cellId: 62a6a7a6-b728-4829-8394-16260982e747 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Select Dataset
+    config:
+      inputType: DROPDOWN
+      name: select_dataset
+      outputType: STRING
+      options:
+        valueOptions:
+          - Austin Bikeshare
+          - US Census
+          - FHIR
+          - Google Analytics 4
+          - FAA
+          - Google Cloud Release Notes
+          - Iowa Liquor Sales Forecast
+          - Medicare
+          - NCAA Basketball
+          - San Francisco Film Locations
+          - USA Popular Names
+          - Wikipedia
+          - StackOverflow
+      defaultValue: StackOverflow
+  - cellType: CODE
+    cellId: 342863ab-910a-4263-abf5-9ffe7c62118d # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Get Dataset Name
+    config:
+      source: |-
+        """
+        Convert dataset names from friendly name to actual name
+        """
+
+        if select_dataset == 'Austin Bikeshare':
+            prompt_dataset_name = 'bigquery-public-data.austin_bikeshare'
+        elif select_dataset == 'US Census':
+            prompt_dataset_name = 'bigquery-public-data.census_bureau_usa'
+        elif select_dataset == 'FHIR':
+            prompt_dataset_name = 'bigquery-public-data.fhir_synthea'
+        elif select_dataset == 'Google Analytics 4':
+            prompt_dataset_name = 'bigquery-public-data.ga4_obfuscated_sample_ecommerce'
+        elif select_dataset == 'FAA':
+            prompt_dataset_name = 'bigquery-public-data.faa'
+        elif select_dataset == 'Google Cloud Release Notes':
+            prompt_dataset_name = 'bigquery-public-data.google_cloud_release_notes'
+        elif select_dataset == 'Iowa Liquor Sales Forecast':
+            prompt_dataset_name = 'bigquery-public-data.iowa_liquor_sales_forecasting'
+        elif select_dataset == 'Medicare':
+            prompt_dataset_name = 'bigquery-public-data.medicare'
+        elif select_dataset == 'NCAA Basketball':
+            prompt_dataset_name = 'bigquery-public-data.ncaa_basketball'
+        elif select_dataset == 'San Francisco Film Locations':
+            prompt_dataset_name = 'bigquery-public-data.san_francisco_film_locations'
+        elif select_dataset == 'StackOverflow':
+            prompt_dataset_name = 'bigquery-public-data.stackoverflow'
+        elif select_dataset == 'USA Popular Names':
+            prompt_dataset_name = 'bigquery-public-data.usa_names'
+        elif select_dataset == 'Wikipedia':
+            prompt_dataset_name = 'bigquery-public-data.wikipedia'
+        else:
+            prompt_dataset_name = ''
+  - cellType: CODE
+    cellId: bd13e681-d5ac-43cf-acc4-93e70f63b5af # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Get Table Names
+    config:
+      source: |-
+        """
+        Get the table names for the specified dataset
+        """
+
+        if prompt_dataset_name.strip() == '':
+            print("Dataset name is empty. Please provide a valid dataset name.")
+        else:
+            try:
+                # List all tables in the dataset
+                dataset_tables = client.list_tables(prompt_dataset_name)
+
+                dataset_table_names = []
+                if dataset_tables:
+                    print(f"Found tables in dataset {prompt_dataset_name}:")
+                    for table in dataset_tables:
+                        dataset_table_names.append(table.table_id)
+                        print(f"Table found: {table.table_id}")
+                else:
+                    print(f"No tables found in dataset {prompt_dataset_name}.")
+
+                print("All table names:", dataset_table_names)
+
+            except Exception as e:
+                print(f"An error occurred: {e}")
+  - cellType: INPUT
+    cellId: 78c64243-7796-42d4-8b3b-72f4fe52d62e # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Select Query Table
+    config:
+      inputType: DROPDOWN
+      name: prompt_table
+      outputType: DYNAMIC
+      options:
+        valueOptions:
+          variableName: dataset_table_names
+      defaultValue: posts_answers
+  - cellType: INPUT
+    cellId: f33f7675-ec24-477d-9c00-ffed4fd7e973 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Rows to Preview
+    config:
+      inputType: NUMERIC_INPUT
+      name: rows_to_preview
+      outputType: NUMBER
+      options:
+        increment: 10
+      defaultValue: 15
+  - cellType: CODE
+    cellId: 7566f394-a382-4105-bf97-9528513d6352 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Table Preview
+    config:
+      source: |-
+        """
+        Generated a preview of the selected table and sample size
+        """
+
+        table_to_query = prompt_dataset_name + "." + prompt_table
+        rows_to_preview = rows_to_preview
+
+
+        preview_query = f"""
+        SELECT * 
+        FROM `{table_to_query}`
+        LIMIT {rows_to_preview}
+        """
+
+        query_job = client.query(preview_query)
+  - cellType: CODE
+    cellId: eb541c1c-fb66-4055-9fba-05b1744c7a91 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Table Description
+    config:
+      source: |-
+        """
+        Use Langchain to generate and store a table description. First look up if a description exists, if so display it. If one does not exist then generate a description.
+        """
+
+        import csv
+        import os
+        from langchain.utilities import SQLDatabase
+        from langchain.llms import OpenAI
+        from langchain_experimental.sql import SQLDatabaseChain
+
+        csv_filename = "table_descriptions.csv"
+        describe_prompt = f' describe {table_to_query}. Give a general description of the table and what it is for. Highlight the columns that are in the table, what each column contains.'
+
+        db = SQLDatabase(engine) #, include_tables=prompt_tables
+        llm = OpenAI(temperature=0, verbose=True)
+
+        db_chain = SQLDatabaseChain.from_llm(llm, verbose=False,db=db, use_query_checker=True, top_k=10)
+
+        # Check if the CSV file exists and read it into a dictionary
+        if os.path.exists(csv_filename):
+            with open(csv_filename, mode="r", newline="") as csvfile:
+                reader = csv.DictReader(csvfile)
+                description_dict = {row["key"]: row["description"] for row in reader}
+        else:
+            description_dict = {}
+
+        # Check if the description for table_to_query exists
+        if table_to_query in description_dict:
+            print(description_dict[table_to_query])
+        else:
+            # Run the db_chain and store the output
+            description_output = db_chain.run(describe_prompt)
+            print(description_output)
+
+            # Add the new record to the CSV file
+            with open(csv_filename, mode="a", newline="") as csvfile:
+                fieldnames = ["key", "description"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                if not description_dict:  # If the dictionary is empty, write the header
+                    writer.writeheader()
+                writer.writerow({"key": table_to_query, "description": description_output})
+  - cellType: CODE
+    cellId: 338407fe-e41a-4d84-bb22-1718d8be5d98 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Table to Dataframe
+    config:
+      source: |-
+        """
+        Convert the table to a dataframe for working with Pandas
+        """
+
+        import pandas as pd
+
+        dataframe_table = query_job.to_dataframe()
+        dataframe_table.head(rows_to_preview)
+  - cellType: CODE
+    cellId: 5ecc3917-72d0-409f-a011-84e2ae96fa5e # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Table Stats
+    config:
+      source: |-
+        """
+        Display stats for all columns in the table
+        """
+
+        dataframe_table.describe(include='all', datetime_is_numeric=True)
+
+        # Note: This is currently only showing the stats for the preview set of data, needs to be expanded to show all data but it was crashing the notebook due to lack of memory
+  - cellType: TABLE_DISPLAY
+    cellId: bfa7b991-90db-4bb7-a7e4-249c4697842e # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Table Preview
+    config:
+      dataFrameVariableName: dataframe_table
+      resultVariable: table_result
+      tableDisplayConfig:
+        pageSize: 50
+        height: null
+        hideIcons: false
+        hideIndex: false
+        defaultSortColumn: null
+        defaultSortIndexColumn: null
+        defaultSortDirection: ASC
+        conditionalFormatting: null
+        filters: null
+        columnProperties:
+          - originalName: accepted_answer_id
+            renameTo: null
+            size: 166
+            wrapText: null
+            displayFormat: null
+          - originalName: answer_count
+            renameTo: null
+            size: 130
+            wrapText: null
+            displayFormat: null
+          - originalName: basedOn
+            renameTo: null
+            size: 103
+            wrapText: null
+            displayFormat: null
+          - originalName: body
+            renameTo: null
+            size: 400
+            wrapText: null
+            displayFormat: null
+          - originalName: bodySite
+            renameTo: null
+            size: 102
+            wrapText: null
+            displayFormat: null
+          - originalName: category
+            renameTo: null
+            size: 102
+            wrapText: null
+            displayFormat: null
+          - originalName: city
+            renameTo: null
+            size: 94
+            wrapText: null
+            displayFormat: null
+          - originalName: class
+            renameTo: null
+            size: 82
+            wrapText: null
+            displayFormat: null
+          - originalName: comment_count
+            renameTo: null
+            size: 143
+            wrapText: null
+            displayFormat: null
+          - originalName: community_owned_date
+            renameTo: null
+            size: 187
+            wrapText: null
+            displayFormat: null
+          - originalName: complication
+            renameTo: null
+            size: 124
+            wrapText: null
+            displayFormat: null
+          - originalName: complicationDetail
+            renameTo: null
+            size: 156
+            wrapText: null
+            displayFormat: null
+          - originalName: county
+            renameTo: null
+            size: 91
+            wrapText: null
+            displayFormat: null
+          - originalName: creation_date
+            renameTo: null
+            size: 242
+            wrapText: null
+            displayFormat: null
+          - originalName: date
+            renameTo: null
+            size: 99
+            wrapText: null
+            displayFormat: null
+          - originalName: datehour
+            renameTo: null
+            size: 196
+            wrapText: null
+            displayFormat: null
+          - originalName: definition
+            renameTo: null
+            size: 106
+            wrapText: null
+            displayFormat: null
+          - originalName: drg_definition
+            renameTo: null
+            size: 400
+            wrapText: null
+            displayFormat: null
+          - originalName: focalDevice
+            renameTo: null
+            size: 117
+            wrapText: null
+            displayFormat: null
+          - originalName: followUp
+            renameTo: null
+            size: 103
+            wrapText: null
+            displayFormat: null
+          - originalName: gender
+            renameTo: null
+            size: 92
+            wrapText: null
+            displayFormat: null
+          - originalName: id
+            renameTo: null
+            size: 82
+            wrapText: null
+            displayFormat: null
+          - originalName: identifier
+            renameTo: null
+            size: 103
+            wrapText: null
+            displayFormat: null
+          - originalName: implicitRules
+            renameTo: null
+            size: 125
+            wrapText: null
+            displayFormat: null
+          - originalName: language
+            renameTo: null
+            size: 104
+            wrapText: null
+            displayFormat: null
+          - originalName: market
+            renameTo: null
+            size: 157
+            wrapText: null
+            displayFormat: null
+          - originalName: mascot
+            renameTo: null
+            size: 94
+            wrapText: null
+            displayFormat: null
+          - originalName: mascot_common_name
+            renameTo: null
+            size: 185
+            wrapText: null
+            displayFormat: null
+          - originalName: mascot_name
+            renameTo: null
+            size: 148
+            wrapText: null
+            displayFormat: null
+          - originalName: name
+            renameTo: null
+            size: 85
+            wrapText: null
+            displayFormat: null
+          - originalName: number
+            renameTo: null
+            size: 97
+            wrapText: null
+            displayFormat: null
+          - originalName: post_id
+            renameTo: null
+            size: 95
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_city
+            renameTo: null
+            size: 124
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_id
+            renameTo: null
+            size: 115
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_name
+            renameTo: null
+            size: 253
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_state
+            renameTo: null
+            size: 132
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_street_address
+            renameTo: null
+            size: 186
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_zipcode
+            renameTo: null
+            size: 147
+            wrapText: null
+            displayFormat: null
+          - originalName: sale_dollars
+            renameTo: null
+            size: 150
+            wrapText: null
+            displayFormat: null
+          - originalName: score
+            renameTo: null
+            size: 84
+            wrapText: null
+            displayFormat: null
+          - originalName: state
+            renameTo: null
+            size: 82
+            wrapText: null
+            displayFormat: null
+          - originalName: store_name
+            renameTo: null
+            size: 119
+            wrapText: null
+            displayFormat: null
+          - originalName: tag_based
+            renameTo: null
+            size: 112
+            wrapText: null
+            displayFormat: null
+          - originalName: tax_subspecies
+            renameTo: null
+            size: 139
+            wrapText: null
+            displayFormat: null
+          - originalName: text
+            renameTo: null
+            size: 400
+            wrapText: null
+            displayFormat: null
+          - originalName: title
+            renameTo: null
+            size: 166
+            wrapText: null
+            displayFormat: null
+          - originalName: user_display_name
+            renameTo: null
+            size: 158
+            wrapText: null
+            displayFormat: null
+          - originalName: user_id
+            renameTo: null
+            size: 94
+            wrapText: null
+            displayFormat: null
+          - originalName: views
+            renameTo: null
+            size: 85
+            wrapText: null
+            displayFormat: null
+          - originalName: year
+            renameTo: null
+            size: 78
+            wrapText: null
+            displayFormat: null
+          - originalName: zip_code
+            renameTo: null
+            size: 102
+            wrapText: null
+            displayFormat: null
+        columnOrdering: null
+        pinnedColumns: null
+        hiddenColumns: null
+  - cellType: INPUT
+    cellId: 2b9218ad-e0d1-43ec-b736-96d4ddef752c # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Enter prompt here
+    config:
+      inputType: TEXT_INPUT
+      name: user_prompt
+      outputType: STRING
+      options: null
+      defaultValue: "Which post had the most answers and what was the question, and what was the most popular answer and which user answered it "
+  - cellType: INPUT
+    cellId: 0789c93e-79e9-4889-b4a5-b0577eb0d8b8 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Click to run
+    config:
+      inputType: BUTTON
+      name: run_prompt
+      outputType: BOOLEAN
+      options:
+        intent: success
+        icon: play
+        text: Run
+      defaultValue: null
+  - cellType: CODE
+    cellId: e142b716-ec22-4794-9d2b-92a377719588 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Database Query
+    config:
+      source: |-
+        """
+        Use Langchain to query the database for the user. Converts their natural language prompt to SQL.
+        """
+
+        # TODO: Switch to agentic model that can handle errors
+
+        system_prompt = f' in {table_to_query}.You are a BigQuery expert. You are able quickly review the tables in a dataset and understand the contents of each table along with their relation. You will be asked a question for which you need to generate and execute a query. The table in the question is the main focus of the question, but you may also need to join to other tables, so keep them in mind as your create your plan. The other tables are {dataset_table_names}. The column names may not match 1:1 in the prompt, use your best reasoning to select a column (for instance a user may ask for an account but in the table the column is account_name).Ensure that the columns you use in the query exist in the table. As you answer the users question, consider what other columns may be additive to their question and include those in your response'
+        full_prompt = user_prompt + system_prompt
+
+
+        if run_prompt:
+           
+            
+            from langchain.utilities import SQLDatabase
+            from langchain.llms import OpenAI
+            from langchain_experimental.sql import SQLDatabaseChain
+            
+            db = SQLDatabase(engine) # include_tables=dataset_tables_to_query
+            llm = OpenAI(temperature=0, verbose=True)
+
+            db_chain = SQLDatabaseChain.from_llm(llm, verbose=True,db=db, use_query_checker=True, top_k=10)
+
+            db_chain.run(full_prompt)
+
+        else: 
+            display("Waiting on you to run the query")
+  - cellType: CODE
+    cellId: f1c10582-f916-4b7d-aab4-3e9b85952a5b # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Relationships
+    config:
+      source: |-
+        """
+        Use Langchain to generate an explanation of relationships between tables
+        """
+
+        # TODO: Store these like we do the descriptions
+        # TODO: Add error handling
+        # TODO: Replace with AI generated ERD
+
+        relationship_prompt = f' Describe the relationship between {table_to_query} and the other tables in the dataset.'
+
+        db = SQLDatabase(engine) #, include_tables=prompt_tables
+        llm = OpenAI(temperature=0, verbose=True)
+
+        db_chain = SQLDatabaseChain.from_llm(llm, verbose=False,db=db, use_query_checker=True, top_k=1)
+
+        relationship_output = db_chain.run(relationship_prompt)
+        print(relationship_output)
+appLayout:
+  visibleMetadataFields:
+    - NAME
+    - DESCRIPTION
+    - AUTHOR
+    - LAST_EDITED
+    - LAST_RUN
+    - CATEGORIES
+    - STATUS
+    - TABLE_OF_CONTENTS
+  fullWidth: false
+  tabs:
+    - name: Tab 1
+      rows:
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 16d0d923-9b04-4ac8-9877-a28b9b96eef8
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 40
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 62a6a7a6-b728-4829-8394-16260982e747
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 40
+              end: 80
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 78c64243-7796-42d4-8b3b-72f4fe52d62e
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 80
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: f33f7675-ec24-477d-9c00-ffed4fd7e973
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: eb541c1c-fb66-4055-9fba-05b1744c7a91
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 5ecc3917-72d0-409f-a011-84e2ae96fa5e
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: bfa7b991-90db-4bb7-a7e4-249c4697842e
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: f1c10582-f916-4b7d-aab4-3e9b85952a5b
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 100
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 2b9218ad-e0d1-43ec-b736-96d4ddef752c
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 100
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 0789c93e-79e9-4889-b4a5-b0577eb0d8b8
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: e142b716-ec22-4794-9d2b-92a377719588
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+sharedFilters: []
