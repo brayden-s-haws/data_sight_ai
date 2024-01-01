@@ -8,13 +8,17 @@ This app allows users to quickly onboard themselves to the contents of a databas
 
 
 # How It Works
-The app comes pre-loaded with a series of datasets. These datasets span domains (sales, search trends, churn, supply chain) and time intervals (daily, weekly, monthly, quarterly). The user is able to select the dataset they wish to work with and the number of intervals they would like to forecast. They then select the type of forecast(s) to run: linear, simple seasonal ([SARIMAX](https://towardsdatascience.com/time-series-forecasting-with-arima-sarima-and-sarimax-ee61099e78f6)), advanced seasonal ([Prophet](https://facebook.github.io/prophet/)). The app then does the work to determine the correct configuration for each forecast based on the selected dataset. It runs the forecast models and generates a chart with the outputs. The outputs can also be exported to csv or xlsx.
+The app comes pre-loaded with a series of BigQuery datasets. The user is able to select the dataset they wish to work with, the table they are interest in, and the number of rows to preview. They are then shown several details about the data including a description of the table, how it relates to other tables, column fill stats and a data preview. Lastly, they can ask questions in natural language and an AI agent will generate SQL to answer those questions. The descriptions, relationships, and queries are all generated using [LangChain](https://www.langchain.com).
 
-The app is hosted on [Hex](https://hex.tech) and your can test it for yourself at this [link](https://app.hex.tech/455658aa-ee04-480f-945a-3fd455933fa2/app/6356acb1-2d8d-4f12-96a9-376dac1bb85e/latest).
+The app is hosted on [Hex](https://hex.tech) and your can test it for yourself at this [link](https://app.hex.tech/455658aa-ee04-480f-945a-3fd455933fa2/app/9f3e2ca6-e2d9-4be5-b2b1-d761a410618b/latest).
 
 The code for this is available in two forms:
 * A jupyter notebook file that you can run on the configuration of your choice
 * A yaml file that is meant for importing into Hex
 
 # Roadmap
-Currently there are a limited number of datasets available. The code is written in a manner to handle any dataset with at least one series of values and a corresponding series of dates. I would like to add a way for users to be able to upload their own dataset and run forecasts on it.
+Currently we are using the most basic version of Langchain agents. We will be updating this to use advanced style agents which will allow us to offer:
+* AI generated ERDs
+* Advanced query agent with Error handling and recovery
+* AI recommended visualizations
+
