@@ -4,6 +4,7 @@ This app allows users to quickly onboard themselves to the contents of a databas
 * Data preview and column stats
 * AI generated table relationship details
 * Natural language querying via an LLM-based agent (this agent is built with error handling and can recover from errors to generate a valid query)
+
 (This is meant to be a proof of concept for how AI tools can help users better understand and work with their data.)
 
 
