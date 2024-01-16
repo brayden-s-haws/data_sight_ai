@@ -3,7 +3,7 @@ This app allows users to quickly onboard themselves to the contents of a databas
 * AI generated descriptions for each table
 * Data preview and column stats
 * AI generated table relationship details
-* Natural language querying via an LLM-based agent
+* Natural language querying via an LLM-based agent (this agent is built with error handling and can recover from errors to generate a valid query)
 (This is meant to be a proof of concept for how AI tools can help users better understand and work with their data.)
 
 
@@ -21,7 +21,6 @@ The code for this is available in two forms:
 # Roadmap
 Currently we are using the most basic version of Langchain agents. We will be updating this to use advanced style agents which will allow us to offer:
 * AI generated ERDs
-* Advanced query agent with Error handling and recovery
 * AI recommended visualizations
 
 # Acknowledgements
