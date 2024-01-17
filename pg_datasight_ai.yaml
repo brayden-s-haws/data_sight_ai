@@ -19,7 +19,7 @@ projectAssets:
     - dataConnectionId: a1ebef07-4a80-4034-85b2-00282ad453a5 # dvd_rentals (postgres)
   envVars:
     - name: OPENAI_API_KEY
-      value: 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
+      value: 
   secrets:
     - secretName: OPENAI_API_KEY
     - secretName: postgres_endpoint_id
