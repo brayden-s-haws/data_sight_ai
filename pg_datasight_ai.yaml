@@ -1,0 +1,906 @@
+schemaVersion: 3
+meta:
+  sourceVersionId: 31879cde-aa30-4437-9e04-4cea674cff64 # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
+  description: null
+  projectId: 5674db16-661a-4545-916f-ffafe6620ea2 # DO NOT CHANGE - Unique ID of the project from which this file was generated
+  title: DataSight AI
+  timezone: null
+  appTheme: SYS_PREF
+  codeLanguage: PYTHON
+  status:
+    name: Exploratory
+  categories:
+    - name: External
+  castDecimalsDefault: true
+  logicQueryCacheTimeout: null
+  publishedQueryCacheTimeout: null
+projectAssets:
+  dataConnections:
+    - dataConnectionId: a1ebef07-4a80-4034-85b2-00282ad453a5 # dvd_rentals (postgres)
+  envVars:
+    - name: OPENAI_API_KEY
+      value: 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
+  secrets:
+    - secretName: OPENAI_API_KEY
+    - secretName: postgres_endpoint_id
+    - secretName: postgres_host
+    - secretName: postgres_password
+    - secretName: postgres_username
+sharedAssets:
+  secrets: []
+  vcsPackages: []
+  dataConnections: []
+  externalFileIntegrations: []
+cells:
+  - cellType: MARKDOWN
+    cellId: 49601c61-12ec-43ce-ab1e-a5e3c6d3e452 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Overview
+    config:
+      source: |-
+        This app allows users to quickly onboard themselves to the contents of a database. It uses standard data tools and Generative AI agents to surface information about the data. Currently it offers: 
+        * AI generated descriptions for each table
+        * Data preview and column stats 
+        * AI generated table relationship details 
+        * Natural language querying via an LLM-based agent (this agent is built with error handling and can recover from errors to generate a valid query)
+
+        (This is meant to be a proof of concept for how AI tools can help users better understand and work with their data.)
+
+        Coming Soon 🗺️:
+        * AI generated ERDs
+        * AI recommended visualizations
+
+        You can get technical details and access to the code on [GitHub](https://github.com/brayden-s-haws/data_sight_ai).
+  - cellType: CODE
+    cellId: 94c4ae34-f6ae-43ad-a9a0-2fb75501d7e1 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Environment Setup
+    config:
+      source: |+
+        """
+        Install non-standard packages
+        """
+
+        !pip install langchain langchain-experimental
+        !pip install sqlalchemy psycopg2
+        !pip install psycopg2-binary
+        !pip install --upgrade --force-reinstall psycopg2-binary
+
+  - cellType: INPUT
+    cellId: bf080db7-b98d-4c56-90f6-a9d56db4ede0 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Select Database
+    config:
+      inputType: DROPDOWN
+      name: select_database
+      outputType: STRING
+      options:
+        valueOptions:
+          - dvd_rentals
+          - lego
+          - online_store
+      defaultValue: lego
+  - cellType: CODE
+    cellId: c7928e82-728e-4a66-b77b-bcf029130899 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Setup Postgres  Engine
+    config:
+      source: |
+        from sqlalchemy import create_engine
+
+        # PostgreSQL connection parameters
+        username = postgres_username
+        password = postgres_password
+        host = postgres_host
+        port = '5432'
+        database = select_database
+        endpoint_id = postgres_endpoint_id
+
+        # PostgreSQL connection string
+        postgresql_connection_string = f'postgresql://{username}:{password}@{host}:{port}/{database}?sslmode=require&options=endpoint%3D{endpoint_id}'
+
+        # Create SQLAlchemy engine for PostgreSQL
+        engine = create_engine(postgresql_connection_string)
+
+        # Test the connection
+        try:
+            with engine.connect() as connection:
+                print("Successfully connected to PostgreSQL")
+        except Exception as e:
+            print(f"Error connecting to PostgreSQL: {e}")
+  - cellType: CODE
+    cellId: e2cb57f2-62ba-4a81-88ed-7fdf63626d70 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Get Table Names
+    config:
+      source: |-
+        table_name_query = """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        """
+
+        with engine.connect() as connection:
+            result = connection.execute(table_name_query)
+            tables = [row['table_name'] for row in result]
+
+        # Printing the table names
+        for table in tables:
+            print(table)
+
+
+        database_table_names = []
+        for table in tables:
+            database_table_names.append(table)
+  - cellType: INPUT
+    cellId: 99a7fb78-e37c-48f6-b827-4fd3c9ed063d # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Select Query Table
+    config:
+      inputType: DROPDOWN
+      name: focus_table
+      outputType: DYNAMIC
+      options:
+        valueOptions:
+          variableName: database_table_names
+      defaultValue: lego_parts
+  - cellType: INPUT
+    cellId: 80540357-0be9-450a-bc0c-6d94dc0f330b # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Rows to Preview
+    config:
+      inputType: NUMERIC_INPUT
+      name: rows_to_preview
+      outputType: NUMBER
+      options:
+        increment: 10
+      defaultValue: 15
+  - cellType: CODE
+    cellId: 71f9d7d0-19c7-415f-a0ef-600bd099514a # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Create Table Dataframe
+    config:
+      source: |+
+        """
+        Generate a preview of the selected table and sample size
+        """
+
+        import pandas as pd
+
+        preview_query = f"""
+        SELECT * 
+        FROM {focus_table}
+        LIMIT {rows_to_preview}
+        """
+
+        stats_query = f"""
+        SELECT *
+        FROM {focus_table}
+        """
+
+        with engine.connect() as connection:
+            table_preview_dataframe = pd.read_sql_query(preview_query, connection)
+            table_stats_dataframe = pd.read_sql_query(stats_query, connection)
+
+  - cellType: TABLE_DISPLAY
+    cellId: d5720954-4b63-478e-8900-142c0e117f49 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Table Preview
+    config:
+      dataFrameVariableName: table_preview_dataframe
+      resultVariable: table_result
+      tableDisplayConfig:
+        pageSize: 50
+        height: null
+        hideIcons: false
+        hideIndex: false
+        defaultSortColumn: null
+        defaultSortIndexColumn: null
+        defaultSortDirection: ASC
+        conditionalFormatting: null
+        filters: null
+        columnProperties:
+          - originalName: accepted_answer_id
+            renameTo: null
+            size: 166
+            wrapText: null
+            displayFormat: null
+          - originalName: actor_id
+            renameTo: null
+            size: 98
+            wrapText: null
+            displayFormat: null
+          - originalName: amount
+            renameTo: null
+            size: 96
+            wrapText: null
+            displayFormat: null
+          - originalName: answer_count
+            renameTo: null
+            size: 130
+            wrapText: null
+            displayFormat: null
+          - originalName: basedOn
+            renameTo: null
+            size: 103
+            wrapText: null
+            displayFormat: null
+          - originalName: body
+            renameTo: null
+            size: 400
+            wrapText: null
+            displayFormat: null
+          - originalName: bodySite
+            renameTo: null
+            size: 102
+            wrapText: null
+            displayFormat: null
+          - originalName: category
+            renameTo: null
+            size: 102
+            wrapText: null
+            displayFormat: null
+          - originalName: city
+            renameTo: null
+            size: 94
+            wrapText: null
+            displayFormat: null
+          - originalName: city_id
+            renameTo: null
+            size: 90
+            wrapText: null
+            displayFormat: null
+          - originalName: class
+            renameTo: null
+            size: 82
+            wrapText: null
+            displayFormat: null
+          - originalName: comment_count
+            renameTo: null
+            size: 143
+            wrapText: null
+            displayFormat: null
+          - originalName: community_owned_date
+            renameTo: null
+            size: 187
+            wrapText: null
+            displayFormat: null
+          - originalName: complication
+            renameTo: null
+            size: 124
+            wrapText: null
+            displayFormat: null
+          - originalName: complicationDetail
+            renameTo: null
+            size: 156
+            wrapText: null
+            displayFormat: null
+          - originalName: country
+            renameTo: null
+            size: 123
+            wrapText: null
+            displayFormat: null
+          - originalName: country_id
+            renameTo: null
+            size: 112
+            wrapText: null
+            displayFormat: null
+          - originalName: county
+            renameTo: null
+            size: 91
+            wrapText: null
+            displayFormat: null
+          - originalName: creation_date
+            renameTo: null
+            size: 242
+            wrapText: null
+            displayFormat: null
+          - originalName: customer_id
+            renameTo: null
+            size: 122
+            wrapText: null
+            displayFormat: null
+          - originalName: date
+            renameTo: null
+            size: 99
+            wrapText: null
+            displayFormat: null
+          - originalName: datehour
+            renameTo: null
+            size: 196
+            wrapText: null
+            displayFormat: null
+          - originalName: definition
+            renameTo: null
+            size: 106
+            wrapText: null
+            displayFormat: null
+          - originalName: drg_definition
+            renameTo: null
+            size: 400
+            wrapText: null
+            displayFormat: null
+          - originalName: film_id
+            renameTo: null
+            size: 92
+            wrapText: null
+            displayFormat: null
+          - originalName: focalDevice
+            renameTo: null
+            size: 117
+            wrapText: null
+            displayFormat: null
+          - originalName: followUp
+            renameTo: null
+            size: 103
+            wrapText: null
+            displayFormat: null
+          - originalName: gender
+            renameTo: null
+            size: 92
+            wrapText: null
+            displayFormat: null
+          - originalName: id
+            renameTo: null
+            size: 82
+            wrapText: null
+            displayFormat: null
+          - originalName: identifier
+            renameTo: null
+            size: 103
+            wrapText: null
+            displayFormat: null
+          - originalName: implicitRules
+            renameTo: null
+            size: 125
+            wrapText: null
+            displayFormat: null
+          - originalName: is_trans
+            renameTo: null
+            size: 98
+            wrapText: null
+            displayFormat: null
+          - originalName: language
+            renameTo: null
+            size: 104
+            wrapText: null
+            displayFormat: null
+          - originalName: last_update
+            renameTo: null
+            size: 196
+            wrapText: null
+            displayFormat: null
+          - originalName: market
+            renameTo: null
+            size: 157
+            wrapText: null
+            displayFormat: null
+          - originalName: mascot
+            renameTo: null
+            size: 94
+            wrapText: null
+            displayFormat: null
+          - originalName: mascot_common_name
+            renameTo: null
+            size: 185
+            wrapText: null
+            displayFormat: null
+          - originalName: mascot_name
+            renameTo: null
+            size: 148
+            wrapText: null
+            displayFormat: null
+          - originalName: name
+            renameTo: null
+            size: 85
+            wrapText: null
+            displayFormat: null
+          - originalName: num_parts
+            renameTo: null
+            size: 114
+            wrapText: null
+            displayFormat: null
+          - originalName: number
+            renameTo: null
+            size: 97
+            wrapText: null
+            displayFormat: null
+          - originalName: parent_id
+            renameTo: null
+            size: 107
+            wrapText: null
+            displayFormat: null
+          - originalName: payment_date
+            renameTo: null
+            size: 242
+            wrapText: null
+            displayFormat: null
+          - originalName: payment_id
+            renameTo: null
+            size: 119
+            wrapText: null
+            displayFormat: null
+          - originalName: post_id
+            renameTo: null
+            size: 95
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_city
+            renameTo: null
+            size: 124
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_id
+            renameTo: null
+            size: 115
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_name
+            renameTo: null
+            size: 253
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_state
+            renameTo: null
+            size: 132
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_street_address
+            renameTo: null
+            size: 186
+            wrapText: null
+            displayFormat: null
+          - originalName: provider_zipcode
+            renameTo: null
+            size: 147
+            wrapText: null
+            displayFormat: null
+          - originalName: rental_id
+            renameTo: null
+            size: 103
+            wrapText: null
+            displayFormat: null
+          - originalName: rgb
+            renameTo: null
+            size: 77
+            wrapText: null
+            displayFormat: null
+          - originalName: sale_dollars
+            renameTo: null
+            size: 150
+            wrapText: null
+            displayFormat: null
+          - originalName: score
+            renameTo: null
+            size: 84
+            wrapText: null
+            displayFormat: null
+          - originalName: set_num
+            renameTo: null
+            size: 102
+            wrapText: null
+            displayFormat: null
+          - originalName: staff_id
+            renameTo: null
+            size: 95
+            wrapText: null
+            displayFormat: null
+          - originalName: state
+            renameTo: null
+            size: 82
+            wrapText: null
+            displayFormat: null
+          - originalName: store_name
+            renameTo: null
+            size: 119
+            wrapText: null
+            displayFormat: null
+          - originalName: tag_based
+            renameTo: null
+            size: 112
+            wrapText: null
+            displayFormat: null
+          - originalName: tax_family
+            renameTo: null
+            size: 111
+            wrapText: null
+            displayFormat: null
+          - originalName: tax_genus
+            renameTo: null
+            size: 111
+            wrapText: null
+            displayFormat: null
+          - originalName: tax_order
+            renameTo: null
+            size: 107
+            wrapText: null
+            displayFormat: null
+          - originalName: tax_species
+            renameTo: null
+            size: 119
+            wrapText: null
+            displayFormat: null
+          - originalName: tax_subspecies
+            renameTo: null
+            size: 139
+            wrapText: null
+            displayFormat: null
+          - originalName: text
+            renameTo: null
+            size: 400
+            wrapText: null
+            displayFormat: null
+          - originalName: theme_id
+            renameTo: null
+            size: 106
+            wrapText: null
+            displayFormat: null
+          - originalName: title
+            renameTo: null
+            size: 166
+            wrapText: null
+            displayFormat: null
+          - originalName: user_display_name
+            renameTo: null
+            size: 158
+            wrapText: null
+            displayFormat: null
+          - originalName: user_id
+            renameTo: null
+            size: 94
+            wrapText: null
+            displayFormat: null
+          - originalName: version
+            renameTo: null
+            size: 94
+            wrapText: null
+            displayFormat: null
+          - originalName: views
+            renameTo: null
+            size: 85
+            wrapText: null
+            displayFormat: null
+          - originalName: year
+            renameTo: null
+            size: 78
+            wrapText: null
+            displayFormat: null
+          - originalName: zip_code
+            renameTo: null
+            size: 102
+            wrapText: null
+            displayFormat: null
+        columnOrdering: null
+        pinnedColumns: null
+        hiddenColumns: null
+  - cellType: CODE
+    cellId: 465eced9-d65a-4936-bb5a-dfd0fde4cde8 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Table Stats
+    config:
+      source: |
+        """
+        Display stats for all columns in the table
+        """
+
+        table_stats_dataframe.describe(include='all', datetime_is_numeric=True)
+  - cellType: CODE
+    cellId: d1732bc3-ab0f-4913-ba8c-576d51146262 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: AI Generated Table Description
+    config:
+      source: |-
+        """
+        Use Langchain to generate and store a table description. First look up if a description exists, if so display it. If one does not exist then generate a description.
+        """
+
+        import csv
+        import os
+        from langchain.agents import create_sql_agent
+        from langchain.agents.agent_toolkits import SQLDatabaseToolkit
+        from langchain.utilities import SQLDatabase
+        from langchain.chat_models import ChatOpenAI
+        from langchain.agents.agent_types import AgentType
+
+        csv_filename = "table_descriptions.csv"
+        describe_prompt = f"Describe {focus_table}. Give a one sentence description of the table. And give a sentence on how the data in this table might be used by a user. Do not repeat information between sentences"
+
+        db = SQLDatabase(engine, schema='public')
+        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0,  max_tokens=2000)
+
+        agent_executor = create_sql_agent(
+            llm=llm,
+            toolkit=SQLDatabaseToolkit(db=db, llm=llm),
+            verbose=True, use_query_checker=True, handle_parsing_errors=True,
+            agent_type=AgentType.OPENAI_FUNCTIONS, agent_executor_kwargs={"handle_parsing_errors": True},
+        )
+
+        db_tables = SQLDatabase(engine)
+
+        agent_executor_tables = create_sql_agent(
+            llm=llm,
+            toolkit=SQLDatabaseToolkit(db=db_tables, llm=llm),
+            verbose=True, use_query_checker=True, handle_parsing_errors=True, top_k=10,
+            agent_type=AgentType.OPENAI_FUNCTIONS, agent_executor_kwargs={"handle_parsing_errors": True},
+        )
+
+        # Check if the CSV file exists and read it into a dictionary
+        if os.path.exists(csv_filename):
+            with open(csv_filename, mode="r", newline="") as csvfile:
+                reader = csv.DictReader(csvfile)
+                description_dict = {row["key"]: row["description"] for row in reader}
+        else:
+            description_dict = {}
+
+        # Check if the description for table_to_query exists
+        if select_database+'.'+focus_table in description_dict:
+            print(description_dict[select_database+'.'+focus_table])
+        else:
+            # Run the db_chain and store the output
+            description_output = agent_executor.run(describe_prompt)
+            print(description_output)  
+
+            # Add the new record to the CSV file
+            with open(csv_filename, mode="a", newline="") as csvfile:
+                fieldnames = ["key", "description"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                if not description_dict:  # If the dictionary is empty, write the header
+                    writer.writeheader()
+                writer.writerow({"key": select_database+'.'+focus_table, "description": description_output})
+  - cellType: CODE
+    cellId: 7ad3eca6-b7ee-433a-93d9-8269583c62c9 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: AI Generated Table Relationships Explanation
+    config:
+      source: |
+        """
+        Use Langchain to generate an explanation of relationships between tables
+        """
+
+        # TODO: Figure out why include tables sometimes does not work
+
+        csv_filename = "table_relationships.csv"
+        relationship_prompt = f' Describe the relationship between {focus_table} and the other tables in the dataset. If there is a join then describe the join with this pattern "{focus_table}.column=table.column"'
+        relationship_prompt_tables = f' Describe the relationship between {focus_table} and the other tables in the dataset: {database_table_names}. If there is a join then describe the join with this pattern "{focus_table}.column=table.column"'
+
+        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, max_tokens=2000)
+
+        try:
+            # Initialize database with include_tables
+            db = SQLDatabase(engine, schema='public', include_tables=database_table_names)
+            agent_executor = create_sql_agent(
+                llm=llm,
+                toolkit=SQLDatabaseToolkit(db=db, llm=llm),
+                verbose=True, use_query_checker=True, handle_parsing_errors=True,
+                agent_type=AgentType.OPENAI_FUNCTIONS, agent_executor_kwargs={"handle_parsing_errors": True},
+            )
+        except ValueError:
+            # Fallback to initialization without include_tables
+            db = SQLDatabase(engine)
+            agent_executor = create_sql_agent(
+                llm=llm,
+                toolkit=SQLDatabaseToolkit(db=db, llm=llm),
+                verbose=True, use_query_checker=True, handle_parsing_errors=True, top_k=10,
+                agent_type=AgentType.OPENAI_FUNCTIONS, agent_executor_kwargs={"handle_parsing_errors": True},
+            )
+
+        # Check if the CSV file exists and read it into a dictionary
+        if os.path.exists(csv_filename):
+            with open(csv_filename, mode="r", newline="") as csvfile:
+                reader = csv.DictReader(csvfile)
+                relationship_dict = {row["key"]: row["relationship"] for row in reader}
+        else:
+            relationship_dict = {}
+
+        # Check if the relationship details for table_to_query exists
+        if select_database+'.'+focus_table in relationship_dict:
+            print(relationship_dict[select_database+'.'+focus_table])
+        else:
+            try:
+                # Run the db_chain and store the output
+                relationship_output = agent_executor.run(relationship_prompt)
+            except Exception as error:
+                print(f"An error occurred: {error}")
+                # Optionally, handle the error or provide an alternative action
+
+            print(relationship_output)
+
+            # Add the new record to the CSV file
+            with open(csv_filename, mode="a", newline="") as csvfile:
+                fieldnames = ["key", "relationship"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                if not relationship_dict:  # If the dictionary is empty, write the header
+                    writer.writeheader()
+                writer.writerow({"key": select_database+'.'+focus_table, "relationship": relationship_output})
+  - cellType: INPUT
+    cellId: 67508632-b1da-485f-afcf-f8ecc2a22df0 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Enter prompt here
+    config:
+      inputType: TEXT_INPUT
+      name: user_prompt
+      outputType: STRING
+      options: null
+      defaultValue: Who are the most popular artists
+  - cellType: INPUT
+    cellId: 4f2600bc-a60a-479c-9481-b1c6f273f7d4 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Click to run
+    config:
+      inputType: BUTTON
+      name: run_prompt
+      outputType: BOOLEAN
+      options:
+        intent: success
+        icon: play
+        text: Run
+      defaultValue: null
+  - cellType: MARKDOWN
+    cellId: 2541b4f5-8c41-4b99-9670-317ee3da43a5 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      source: This shows the AI agents entire chain of thought and outputs a final query and natural language answer. It can be modified to only display the final result.
+  - cellType: CODE
+    cellId: cc4c8d7b-08ef-41d2-b109-101e9590f857 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: AI Generated Database Query
+    config:
+      source: |-
+        """
+        Use Langchain to query the database for the user. Converts their natural language prompt to SQL.
+        """
+        # TODO: Figure out why include_tables isnt working with some data sources. Seems like this needs to be passed into the agent as a custom tool or something?
+        # TODO: Add custom prompt (tell it to include the final SQL query in the answer and raw results).
+
+        system_prompt = f' in {focus_table}.You are a postgres expert. You are able quickly review the tables in a database and understand the contents of each table along with their relation. You will be asked a question for which you need to generate and execute a query. The table in the question is the main focus of the question, but you may also need to join to other tables, so keep them in mind as your create your plan. The column names may not match 1:1 in the prompt, use your best reasoning to select a column (for instance a user may ask for an account but in the table the column is account_name).Ensure that the columns you use in the query exist in the table. As you answer the users question, consider what other columns may be additive to their question and include those in your response. Additionally, include the final SQL query in your answer. Ensure that you run the final SQL query and use it to provide a final, answer to the user that answers their question in natural language. Use a format like this: "final query" \n "raw results \n "natural langauge answer"'
+        full_prompt = user_prompt + system_prompt
+        tables_included_prompt = f' in {focus_table}.You are a postgres expert. You are able quickly review the tables in a database and understand the contents of each table along with their relation. You will be asked a question for which you need to generate and execute a query. The table in the question is the main focus of the question, but you may also need to join to other tables, so keep them in mind as your create your plan, these other tables are {database_table_names}. The column names may not match 1:1 in the prompt, use your best reasoning to select a column (for instance a user may ask for an account but in the table the column is account_name).Ensure that the columns you use in the query exist in the table. As you answer the users question, consider what other columns may be additive to their question and include those in your response. Additionally, include the final SQL query in your answer. Ensure that you run the final SQL query and use it to provide a final, answer to the user that answers their question in natural language. Use a format like this: "final query" \n "raw results \n "natural langauge answer"'
+
+        display("Note: This shows the AI agents entire chain of thought and outputs a final query and natural language answer. It can be modified to only display the final result.")
+
+        if run_prompt:
+            llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0,  max_tokens=2000, verbose=True)
+
+            try:
+                db = SQLDatabase(engine, include_tables=database_table_names)
+                agent_executor = create_sql_agent(
+                    llm=llm,
+                    toolkit=SQLDatabaseToolkit(db=db, llm=llm),
+                    verbose=True, use_query_checker=True, handle_parsing_errors=True, top_k=10,
+                    agent_type=AgentType.OPENAI_FUNCTIONS, agent_executor_kwargs={"handle_parsing_errors": True},
+                )
+                agent_executor.run(full_prompt)
+            except ValueError:
+                # Handle the specific error related to include_tables
+                db_tables = SQLDatabase(engine)
+                agent_executor_tables = create_sql_agent(
+                    llm=llm,
+                    toolkit=SQLDatabaseToolkit(db=db_tables, llm=llm),
+                    verbose=True, use_query_checker=True, handle_parsing_errors=True, top_k=10,
+                    agent_type=AgentType.OPENAI_FUNCTIONS, agent_executor_kwargs={"handle_parsing_errors": True},
+                )
+                agent_executor_tables.run(tables_included_prompt)
+            except Exception as other_error:
+                # Handle other types of exceptions
+                print(f"An unexpected error occurred: {other_error}")
+
+        else: 
+            display("Waiting on you to run the query")
+appLayout:
+  visibleMetadataFields:
+    - NAME
+    - DESCRIPTION
+    - AUTHOR
+    - LAST_EDITED
+    - LAST_RUN
+    - CATEGORIES
+    - STATUS
+    - TABLE_OF_CONTENTS
+  fullWidth: false
+  tabs:
+    - name: Tab 1
+      rows:
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 49601c61-12ec-43ce-ab1e-a5e3c6d3e452
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 30
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: bf080db7-b98d-4c56-90f6-a9d56db4ede0
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 30
+              end: 70
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 99a7fb78-e37c-48f6-b827-4fd3c9ed063d
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 70
+              end: 110
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 80540357-0be9-450a-bc0c-6d94dc0f330b
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: d1732bc3-ab0f-4913-ba8c-576d51146262
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: d5720954-4b63-478e-8900-142c0e117f49
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 465eced9-d65a-4936-bb5a-dfd0fde4cde8
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 7ad3eca6-b7ee-433a-93d9-8269583c62c9
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 100
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 67508632-b1da-485f-afcf-f8ecc2a22df0
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 100
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 4f2600bc-a60a-479c-9481-b1c6f273f7d4
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: cc4c8d7b-08ef-41d2-b109-101e9590f857
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+sharedFilters: []
