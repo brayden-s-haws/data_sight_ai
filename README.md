@@ -1,4 +1,8 @@
-# Description
+# Database AI Onboarding Tool
+
+#### Current status: complete ####
+
+## Description
 This app allows users to quickly onboard themselves to the contents of a database or data warehouse.  It uses standard data tools and Generative AI agents to surface information about the data. Currently it offers:
 * AI generated descriptions for each table
 * Data preview and column stats
@@ -8,7 +12,7 @@ This app allows users to quickly onboard themselves to the contents of a databas
 (This is meant to be a proof of concept for how AI tools can help users better understand and work with their data.)
 
 
-# How It Works
+## How It Works
 The app can be connected to SQL based databases or warehouses. The user is able to select the database they wish to work with, the table they are interested in, and the number of rows to preview. They are then shown several details about the data including a description of the table, how it relates to other tables, column fill stats and a data preview. Lastly, they can ask questions in natural language and an AI agent will generate SQL to answer those questions. The descriptions, relationships, and queries are all generated using [LangChain](https://www.langchain.com).
 
 You can check out a demo [here](https://share.cleanshot.com/GLQQkmTy).
@@ -24,5 +28,11 @@ Coming updates include a move to Streamlit which will allow for:
 * AI generated ERDs
 * AI recommended visualizations
 
-# Acknowledgements
+## Acknowledgements
 Huge thanks to Hex and Jordan East for the inspiration to use Hex as the basis for this tool, and their examples using [Langchain with Snowflake to build a Chatbot](https://hex.tech/use-cases/exploratory-analysis/text-SQL-chatbot/).
+
+___
+
+### Personal Progress ###
+* What I learned: How to work with the LangChain framework for querying databases and integrating with foundation LLM model APIs.
+* What I wish I had done differently: Not done this in a Jupyter notebook. It made for an easy frontend but really limited what functionality I could offer and made deploying a production quality version difficult to impossible.
