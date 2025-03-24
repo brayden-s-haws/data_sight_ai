@@ -32,3 +32,4 @@ ___
 ### Personal Progress ###
 * What I learned: How to work with the LangChain framework for querying databases and integrating with foundation LLM model APIs.
 * What I wish I had done differently: Not done this in a Jupyter notebook. It made for an easy frontend but really limited what functionality I could offer and made deploying a production quality version difficult to impossible. I had ideas for implementing things like ERD generation and AI generated charts but could not get them working in the notebook.
+* What I am most proud of: Lines [579-638](https://github.com/brayden-s-haws/data_sight_ai/blob/8164b5b8f2aee8a0173579838ca5cc2998240310/pg_datasight_ai.yaml#L579) of pg_datasight_ai.yaml. It would have been easy to just generate a description each time the user inspected a table but by storing them we avoid excess usage of compute and drive consistency of definition across users.
