@@ -23,10 +23,6 @@ The code for this is available in several forms for both Postgres and BigQuery (
 * A jupyter notebook file that you can run on the configuration of your choice
 * A yaml file that is meant for importing into Hex
 
-# Roadmap
-Coming updates include a move to Streamlit which will allow for:
-* AI generated ERDs
-* AI recommended visualizations
 
 ## Acknowledgements
 Huge thanks to Hex and Jordan East for the inspiration to use Hex as the basis for this tool, and their examples using [Langchain with Snowflake to build a Chatbot](https://hex.tech/use-cases/exploratory-analysis/text-SQL-chatbot/).
@@ -35,4 +31,4 @@ ___
 
 ### Personal Progress ###
 * What I learned: How to work with the LangChain framework for querying databases and integrating with foundation LLM model APIs.
-* What I wish I had done differently: Not done this in a Jupyter notebook. It made for an easy frontend but really limited what functionality I could offer and made deploying a production quality version difficult to impossible.
+* What I wish I had done differently: Not done this in a Jupyter notebook. It made for an easy frontend but really limited what functionality I could offer and made deploying a production quality version difficult to impossible. I had ideas for implementing things like ERD generation and AI generated charts but could not get them working in the notebook.
