@@ -1,6 +1,6 @@
 # Database AI Onboarding Tool
 
-#### Current status: complete ####
+#### Current status: Complete
 
 ## Description
 This app allows users to quickly onboard themselves to the contents of a database or data warehouse.  It uses standard data tools and Generative AI agents to surface information about the data. Currently it offers:
@@ -29,7 +29,8 @@ Huge thanks to Hex and Jordan East for the inspiration to use Hex as the basis f
 
 ___
 
-### Personal Progress ###
+### Personal Progress
 * What I learned: How to work with the LangChain framework for querying databases and integrating with foundation LLM model APIs.
 * What I wish I had done differently: Not done this in a Jupyter notebook. It made for an easy frontend but really limited what functionality I could offer and made deploying a production quality version difficult to impossible. I had ideas for implementing things like ERD generation and AI generated charts but could not get them working in the notebook.
 * What I am most proud of: Lines [579-638](https://github.com/brayden-s-haws/data_sight_ai/blob/8164b5b8f2aee8a0173579838ca5cc2998240310/pg_datasight_ai.yaml#L579) of pg_datasight_ai.yaml. It would have been easy to just generate a description each time the user inspected a table but by storing them we avoid excess usage of compute and drive consistency of definition across users.
+* What I want to learn next: proper frontend building using JavaScript, HTML, and CSS. I had planned to do some more work here doing StreamLit but again that would have been a hack similar to using a notebook rather than learning proper frontend skills.
